@@ -15,6 +15,8 @@ namespace BonsaiInstallation
 
         public Guid ID { get; set; }
         public Plane placementPlane { get; set; }
+        public Plane duplicatePlane { get; set; }
+
         public List<Plane> orientablePlanes { get; set; }
         public Mesh meshBox { get; set; }
 
@@ -29,7 +31,16 @@ namespace BonsaiInstallation
         public Brep brep { get; set; }
         public bool selected { get; set; }
         public Plane buildOnPlane { get; set; }
+        public string message { get; set; }
 
+        public string designTimeStamp { get; set; }
+
+        public string modificationTimeStamp { get; set; }
+
+        public string physicalTimeStamp { get; set; }
+
+
+        public TimberBranch() { }
 
         // constructor
         public TimberBranch(Plane placementPlane, string user, Color color, string state)
@@ -40,6 +51,7 @@ namespace BonsaiInstallation
 
                 this.ID = Guid.NewGuid();
                 this.placementPlane = placementPlane;
+                this.duplicatePlane = new Plane(placementPlane);
                 this.buildOnPlane = new Plane(placementPlane);
                 this.orientablePlanes = new List<Plane>();
                 this.meshBox = new Mesh();
@@ -48,6 +60,11 @@ namespace BonsaiInstallation
                 this.state = state;
                 this.parentIDs = new List<Guid>();
                 this.childIDs = new List<Guid>();
+
+                this.designTimeStamp = TimberBranch.GetTimeStamp();
+                this.modificationTimeStamp = "";
+                this.physicalTimeStamp = "";
+
 
                 var xInterval = new Interval(-width / 2, width / 2);
                 var yInterval = new Interval(-length / 2, length / 2);
@@ -81,6 +98,60 @@ namespace BonsaiInstallation
             }
 
         }
+
+        // duplicate a member with a new plane
+        public TimberBranch(TimberBranch branch, Plane placementPlane)
+        {
+            this.ID = branch.ID;
+            this.placementPlane = placementPlane;
+            this.duplicatePlane = new Plane(placementPlane);
+            this.buildOnPlane = new Plane(placementPlane);
+            this.orientablePlanes = new List<Plane>();
+            this.meshBox = new Mesh();
+            this.user = branch.user;
+            this.color = branch.color;
+            this.state = branch.state;
+            this.parentIDs = new List<Guid>();
+            this.childIDs = new List<Guid>();
+            this.parentIDs.AddRange(branch.parentIDs);
+            this.childIDs.AddRange(branch.childIDs);
+
+            this.width = branch.width;
+            this.length = branch.length;
+            this.thickness = branch.thickness;
+
+            this.designTimeStamp = branch.designTimeStamp;
+            this.modificationTimeStamp = GetTimeStamp();
+            this.physicalTimeStamp = "";
+
+
+            var xInterval = new Interval(-width / 2, width / 2);
+            var yInterval = new Interval(-length / 2, length / 2);
+            var zInterval = new Interval(-thickness / 2, thickness / 2);
+            this.brep = new Box(placementPlane, xInterval, yInterval, zInterval).ToBrep();
+
+            List<Plane> planes = new List<Plane>();
+            for (int i = 0; i < 4; i++)
+            {
+                Plane plane = new Plane(placementPlane);
+                plane.Rotate(i * Math.PI / 2, placementPlane.YAxis, placementPlane.Origin);
+                planes.Add(plane);
+
+                Rectangle3d faceBorder = TimberBranch.GetBorderFace(plane, this.width, this.length, this.thickness);
+
+                MeshingParameters meshingParameters = new MeshingParameters();
+                meshingParameters.SimplePlanes = true;
+                meshingParameters.GridMaxCount = 1;
+
+                var border = faceBorder.ToNurbsCurve();
+
+                this.meshBox.Append(Mesh.CreateFromPlanarBoundary(border, meshingParameters, Rhino.RhinoDoc.ActiveDoc.ModelAbsoluteTolerance));
+
+            }
+
+            this.orientablePlanes = planes;
+        }
+
 
         public void Select()
         {
@@ -135,6 +206,13 @@ namespace BonsaiInstallation
             this.AddChildID(newBranch.ID);
             return newBranch;
         }
+        public TimberBranch BuildOn(Plane plane, string user, Color color, string state)
+        {
+            TimberBranch newBranch = new TimberBranch(plane, user, color, state);
+            newBranch.AddParentID(this.ID);
+            this.AddChildID(newBranch.ID);
+            return newBranch;
+        }
 
         public Curve GetBorderFace(int side)
         {
@@ -169,6 +247,11 @@ namespace BonsaiInstallation
         public static List<TimberBranch> FromJsonToList(string json)
         {
             return JsonConvert.DeserializeObject<List<TimberBranch>>(json);
+        }
+
+        public static string GetTimeStamp()
+        {
+            return DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss");
         }
 
     }
