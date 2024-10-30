@@ -39,6 +39,15 @@ namespace BonsaiInstallation
 
         public string physicalTimeStamp { get; set; }
 
+        public string fabricatedTimeStamp { get; set; }
+
+        public string fabricationFail { get; set; }
+
+
+        public string placementGlueShift { get; set; }
+
+        public string placementShift { get; set; }
+
 
         public TimberBranch() { }
 
@@ -198,17 +207,20 @@ namespace BonsaiInstallation
         }
 
         // build on on a side of another one
-        public TimberBranch BuildOn(string user, Color color, string state)
+        public TimberBranch BuildOn(string user, Color color, string state, bool ignoreHeirarchy)
         {
             Plane plane = this.buildOnPlane;
             TimberBranch newBranch = new TimberBranch(plane, user, color, state);
+            if (ignoreHeirarchy) return newBranch;
             newBranch.AddParentID(this.ID);
             this.AddChildID(newBranch.ID);
             return newBranch;
         }
-        public TimberBranch BuildOn(Plane plane, string user, Color color, string state)
+        public TimberBranch BuildOn(Plane plane, string user, Color color, bool ignoreHeirarchy)
         {
-            TimberBranch newBranch = new TimberBranch(plane, user, color, state);
+            TimberBranch newBranch = new TimberBranch(plane, user, color, "virtual");
+            if (ignoreHeirarchy) return newBranch;
+
             newBranch.AddParentID(this.ID);
             this.AddChildID(newBranch.ID);
             return newBranch;
